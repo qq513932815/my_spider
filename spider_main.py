@@ -111,7 +111,7 @@ class SpiderMain(object):
         new_url = self.UrlManager.open_url(root_url)
         #将目标url下载为字符文件
         url_text = self.HTMLDownloader.download(new_url)
-        #解析下载的字符串
+        #解析下载的字符串 
 #         url_paser = self.UrlPaser.get_data(new_url,url_text)
         url_parser = self.UrlPaser.get_new_urls(new_url,url_text)
         print url_parser
