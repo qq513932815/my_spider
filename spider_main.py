@@ -7,6 +7,8 @@ Created on 2018年4月16日
 from bs4 import BeautifulSoup
 import re
 import urllib2
+from test.test_bs4 import soup
+import urlparse
 
 #url
 class UrlManager(object):  
@@ -16,6 +18,8 @@ class UrlManager(object):
         if root_url is None or len(root_url) == 0:
             return
         return root_url
+    
+    
 class HTMLDownloader(object):
     
     
@@ -31,6 +35,19 @@ class HTMLDownloader(object):
 
 class UrlPaser(object):
     
+    #解析新的url
+    def get_new_urls(self, page_url, url_text):
+        soup = BeautifulSoup(url_text, 'html.parser', from_encoding='utf-8')
+        new_urls = set()
+        #/item/Guido%20van%20Rossum
+        links = soup.find_all('a', href=re.compile(r"\/item\/[^/]*"))
+        for link in links:
+            new_url = link['href']
+            new_full_url = urlparse.urljoin(page_url, new_url)
+            new_urls.add(new_full_url)
+        return new_urls
+    
+    #解析数据
     def get_data(self, page_url, url_text):
         soup = BeautifulSoup(url_text,'html.parser',from_encoding='utf-8')
         res_data = {}
@@ -90,10 +107,16 @@ class SpiderMain(object):
 
     
     def craw(self, root_url):
+        #向目标url发送请求
         new_url = self.UrlManager.open_url(root_url)
+        #将目标url下载为字符文件
         url_text = self.HTMLDownloader.download(new_url)
-        url_paser = self.UrlPaser.get_data(new_url,url_text)
-        html_outputer = self.HTMLOutputer.OutputHTML(url_paser)
+        #解析下载的字符串
+#         url_paser = self.UrlPaser.get_data(new_url,url_text)
+        url_parser = self.UrlPaser.get_new_urls(new_url,url_text)
+        print url_parser
+        #将解析到的数据进行输出
+#         html_outputer = self.HTMLOutputer.OutputHTML(url_paser)
 
 if __name__ == '__main__':
     root_url = "http://baike.baidu.com/item/Python/407313"
