@@ -7,20 +7,59 @@ Created on 2018年4月16日
 from bs4 import BeautifulSoup
 import re
 import urllib2
-from test.test_bs4 import soup
 import urlparse
+
 
 #url
 class UrlManager(object):  
+
     
-    #
+    def __init__(self):
+        self.new_urls = set()
+        self.old_urls = set()
     
     
-    #向html解析器发送网址进行解析
-    def open_url(self, root_url):
-        if root_url is None or len(root_url) == 0:
+    #向new_urls中添加新的url
+    def add_new_url(self, url):
+        if url is None:
             return
-        return root_url
+        #判断当前待添加的url是否存在
+        if url not in self.new_urls and url not in self.old_urls:
+            self.new_urls.add(url)
+#         print self.new_urls
+        
+    
+    #负责前台接受解析出的url列表，解析后传递给add_new_url进行添加
+    def add_new_urls(self,urls):
+#         print '1',urls
+        if urls is None:
+            return
+        if not isinstance(urls, str):
+#             print '2'
+            for url in urls:
+                self.add_new_url(url)
+    #             print "1",url
+        else:
+            print '3'
+            self.str_add(urls)
+        
+    def str_add(self, urls):
+        print '4'
+        self.new_urls.add(urls)
+        print '5',self.new_urls
+
+
+    
+    #判断是否存在待爬取的url
+    def has_new_url(self):
+        return len(self.new_urls) != 0
+    
+    #负责取出新的url返回给main函数
+    def get_new_url(self):
+        new_url = self.new_urls.pop()
+#         print self.new_urls
+        self.old_urls.add(new_url)
+        return new_url
     
     
 class HTMLDownloader(object):
@@ -34,9 +73,10 @@ class HTMLDownloader(object):
         if response.getcode() != 200:
             return 'Response failed !'
         return response.read()
-    
 
 class UrlPaser(object):
+    def __init__(self):
+        self.UrlManager = UrlManager()
     
     #解析新的url
     def _get_new_urls(self, page_url, soup):
@@ -48,6 +88,7 @@ class UrlPaser(object):
             new_url = link['href']
             new_full_url = urlparse.urljoin(page_url, new_url)
             new_urls.add(new_full_url)
+#         self.UrlManager.new_urls.add(new_urls)
         return new_urls
     
     #解析数据
@@ -76,19 +117,24 @@ class UrlPaser(object):
         soup = BeautifulSoup(url_text,'html.parser',from_encoding='utf-8')
         new_urls = self._get_new_urls(new_url, soup)
         new_data = self._get_data(new_url, soup)
-        
         return new_urls, new_data
         
-
 class HTMLOutputer(object):
+
+    def __init__(self):
+        self.datas = []
+    
+    #搜集所有数据
+    def collect_data(self,data):
+        if data is None:
+            return
+        self.datas.append(data)
   
     #输出器
-    def OutputHTML(self,data):
+    def OutputHTML(self):
         
         fout = open('output.html', 'w')
         
-        if data is None or len(data) == 0:
-            fout.write('<p>No Data Output !</p>') 
         fout.write('<html>')
         fout.write('<header>')
         fout.write('<title>爬取结果</title>')
@@ -98,12 +144,13 @@ class HTMLOutputer(object):
         fout.write('<table>')
         
         #python默认使用ascii编码，需转换为utf8
-#         for data in self.datas:
-        fout.write('<tr>')
-        fout.write('<td>%s</td>' % data['url'])
-        fout.write('<td>%s</td>' % data['title'].encode('utf-8'))
-        fout.write('<td>%s</td>' % data['text'].encode('utf-8'))
-        fout.write('</tr>')
+        for data in self.datas:
+            print '1',data
+            fout.write('<tr>')
+            fout.write('<td>%s</td>' % data['url'])
+            fout.write('<td>%s</td>' % data['title'].encode('utf-8'))
+            fout.write('<td>%s</td>' % data['text'].encode('utf-8'))
+            fout.write('</tr>')
         
         fout.write('</table>')
         fout.write('</body>')
@@ -121,19 +168,35 @@ class SpiderMain(object):
 
     
     def craw(self, root_url):
-        #向目标url发送请求
-        new_url = self.UrlManager.open_url(root_url)
-        #将目标url下载为字符文件
-        url_text = self.HTMLDownloader.download(new_url)
-        #解析下载的字符串 
-#         url_paser = self.UrlPaser.get_data(new_url,url_text)
-        new_urls, new_data = self.UrlPaser.parse(new_url,url_text)
-        print new_urls,new_data
-        #将解析到的数据进行输出
-#         html_outputer = self.HTMLOutputer.OutputHTML(url_paser)
+        
+        count = 1
+        
+        self.UrlManager.add_new_url(root_url)
+        while self.UrlManager.has_new_url():
+            try:
+                #获取爬取url
+                new_url = self.UrlManager.get_new_url()
+#                 print new_url
+                #将目标url下载为字符文件
+                url_text = self.HTMLDownloader.download(new_url)
+                print 'Carw %d : %s' % (count, new_url)
+                #解析下载的字符串 
+                new_urls, new_data = self.UrlPaser.parse(new_url,url_text)
+                #将当前解析到的url添加到新的url中
+                self.UrlManager.add_new_urls(new_urls)
+                print "Craw Data：",new_data,"\n"
+                #将解析到的数据进行输出
+                self.HTMLOutputer.collect_data(new_data)
+#                 print self.HTMLOutputer.datas
+                if count == 10:
+                    break
+                count += 1
+            except Exception,e:
+                print "Craw Failed",e.message
+        self.HTMLOutputer.OutputHTML()
 
 if __name__ == '__main__':
-    root_url = "http://baike.baidu.com/item/Python/407313"
+    root_url = 'http://baike.baidu.com/item/Python/407313'
     Spider = SpiderMain()
     Spider.craw(root_url)
     
