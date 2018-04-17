@@ -13,6 +13,9 @@ import urlparse
 #url
 class UrlManager(object):  
     
+    #
+    
+    
     #向html解析器发送网址进行解析
     def open_url(self, root_url):
         if root_url is None or len(root_url) == 0:
@@ -36,8 +39,8 @@ class HTMLDownloader(object):
 class UrlPaser(object):
     
     #解析新的url
-    def get_new_urls(self, page_url, url_text):
-        soup = BeautifulSoup(url_text, 'html.parser', from_encoding='utf-8')
+    def _get_new_urls(self, page_url, soup):
+        
         new_urls = set()
         #/item/Guido%20van%20Rossum
         links = soup.find_all('a', href=re.compile(r"\/item\/[^/]*"))
@@ -48,8 +51,8 @@ class UrlPaser(object):
         return new_urls
     
     #解析数据
-    def get_data(self, page_url, url_text):
-        soup = BeautifulSoup(url_text,'html.parser',from_encoding='utf-8')
+    def _get_data(self, page_url, soup):
+        
         res_data = {}
         res_data['url'] = page_url
         #<dd class="lemmaWgt-lemmaTitle-title">
@@ -64,6 +67,17 @@ class UrlPaser(object):
         res_data['text'] = text_node.get_text()
         
         return res_data
+    
+    #解析的总调度方法，分别调用私有方法解析新的url和所需数据
+    def parse(self, new_url, url_text):
+        if new_url is None or url_text is None:
+            return
+        
+        soup = BeautifulSoup(url_text,'html.parser',from_encoding='utf-8')
+        new_urls = self._get_new_urls(new_url, soup)
+        new_data = self._get_data(new_url, soup)
+        
+        return new_urls, new_data
         
 
 class HTMLOutputer(object):
@@ -113,8 +127,8 @@ class SpiderMain(object):
         url_text = self.HTMLDownloader.download(new_url)
         #解析下载的字符串 
 #         url_paser = self.UrlPaser.get_data(new_url,url_text)
-        url_parser = self.UrlPaser.get_new_urls(new_url,url_text)
-        print url_parser
+        new_urls, new_data = self.UrlPaser.parse(new_url,url_text)
+        print new_urls,new_data
         #将解析到的数据进行输出
 #         html_outputer = self.HTMLOutputer.OutputHTML(url_paser)
 
